@@ -2,9 +2,9 @@ package com.example.githubusersearch.data.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import coil.network.HttpException
 import com.example.githubusersearch.data.model.RepoDto
 import com.example.githubusersearch.data.remote.GithubApiService
+import retrofit2.HttpException
 import java.io.IOException
 
 class RepoPagingSource(

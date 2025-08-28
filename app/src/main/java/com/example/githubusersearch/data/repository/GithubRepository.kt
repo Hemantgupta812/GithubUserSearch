@@ -8,15 +8,20 @@ import com.example.githubusersearch.data.model.UserDto
 import com.example.githubusersearch.data.paging.RepoPagingSource
 import com.example.githubusersearch.data.remote.GithubApiService
 import kotlinx.coroutines.flow.Flow
+import retrofit2.HttpException
 import javax.inject.Inject
 
 class GithubRepository @Inject constructor(
     private val apiService: GithubApiService
 ) {
-    suspend fun getUser(username: String): Result<UserDto> {
+    suspend fun getUser(username: String): Result<UserDto?> {
         return try {
-            val user = apiService.getUser(username)
-            Result.success(user)
+            val response = apiService.getUser(username)
+            when {
+                response.isSuccessful -> Result.success(response.body())
+                response.code() == 404 -> Result.success(null) // treat as "user not found"
+                else -> Result.failure(HttpException(response))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

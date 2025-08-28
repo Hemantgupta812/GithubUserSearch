@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import coil.network.HttpException
 import com.example.githubusersearch.data.model.RepoDto
 import com.example.githubusersearch.data.model.UserDto
 import com.example.githubusersearch.data.repository.GithubRepository
@@ -14,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
 
@@ -28,7 +28,8 @@ class ProfileViewModel @Inject constructor(
     private val _userProfile = MutableStateFlow<UserProfileUiState>(UserProfileUiState.Idle)
     val userProfile: StateFlow<UserProfileUiState> = _userProfile
 
-    val userRepos: Flow<PagingData<RepoDto>> = repository.getUserRepos(username).cachedIn(viewModelScope)
+    val userRepos: Flow<PagingData<RepoDto>> =
+        repository.getUserRepos(username).cachedIn(viewModelScope)
 
     init {
         // Initial fetch when ViewModel is created if not already handled by LaunchedEffect
@@ -38,31 +39,30 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // ProfileViewModel.kt
     fun fetchUserProfile(username: String) {
         _userProfile.value = UserProfileUiState.Loading
+
         viewModelScope.launch {
             val result = repository.getUser(username)
+
             result.onSuccess { user ->
-                _userProfile.value = UserProfileUiState.Success(user)
+                if (user == null) {
+                    _userProfile.value = UserProfileUiState.Error("User not found: '$username'")
+                } else {
+                    _userProfile.value = UserProfileUiState.Success(user)
+                }
             }.onFailure { throwable ->
                 _userProfile.value = when (throwable) {
-                    is HttpException -> {
-                        if (throwable.response.code == 404) {
-                            UserProfileUiState.Error("User not found: $username")
-                        } else {
-                            UserProfileUiState.Error("Network error: ${throwable.message}")
-                        }
-                    }
-                    is IOException -> {
-                        UserProfileUiState.Error("Network error: Check your internet connection")
-                    }
-                    else -> {
-                        UserProfileUiState.Error("An unexpected error occurred: ${throwable.localizedMessage}")
-                    }
+                    is IOException -> UserProfileUiState.Error("Network error: Check your internet connection")
+                    is HttpException -> UserProfileUiState.Error("Network error (${throwable.code()}): ${throwable.message}")
+                    else -> UserProfileUiState.Error("Unexpected error: ${throwable.localizedMessage ?: "Unknown error"}")
                 }
             }
         }
     }
+
+
 }
 
 sealed class UserProfileUiState {
